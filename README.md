@@ -29,8 +29,8 @@ petad-workspace/
 
 ### 🎨 **Contributing to Frontend**
 
-👉 **[Read Frontend README](frontend/README.md)**  
-👉 **[Read Frontend CONTRIBUTING.md](frontend/CONTRIBUTING.md)**
+👉 **[Read Frontend README](Frontend/README.md)**  
+👉 **[Read Frontend CONTRIBUTING.md](Frontend/CONTRIBUTING.md)**
 
 The frontend is built with:
 - React
@@ -50,8 +50,8 @@ npm run dev
 
 ### ⚙️ **Contributing to Backend**
 
-👉 **[Read Backend README](backend/README.md)**  
-👉 **[Read Backend CONTRIBUTING.md](backend/CONTRIBUTING.md)**
+👉 **[Read Backend README](Backend/README.md)**  
+👉 **[Read Backend CONTRIBUTING.md](Backend/CONTRIBUTING.md)**
 
 The backend is built with:
 - NestJS
