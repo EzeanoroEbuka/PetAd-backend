@@ -11,7 +11,7 @@ import { EventsModule } from './events/events.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
-import { BullModule } from '@nestjs/bullmq';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -25,17 +25,9 @@ import { BullModule } from '@nestjs/bullmq';
     StellarModule,
     AuthModule,
     HealthModule,
-    BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          url: config.get<string>('REDIS_URL')
-        },
-      }),
-    }),
-    
+    CloudinaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
