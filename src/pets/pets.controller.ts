@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
   HttpCode,
@@ -26,6 +27,7 @@ import { PetsService } from './pets.service';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
 import { UpdatePetStatusDto } from './dto/update-pet-status.dto';
+import { SearchPetsDto } from './dto/search-pets.dto';
 import { UserRole } from '../common/enums';
 
 /**
@@ -57,14 +59,65 @@ export class PetsController {
   }
 
   /**
-   * List all available pets
+   * List all available pets with pagination
    * Public endpoint - no authentication required
    */
   @Get()
-  @ApiOperation({ summary: 'List all available pets' })
-  @ApiResponse({ status: 200, description: 'Array of available pets' })
-  async findAll() {
-    return this.petsService.findAll();
+  @ApiOperation({
+    summary: 'List all available pets with pagination',
+    description:
+      'Returns paginated list of pets with optional filtering by species, gender, size, status, and search query',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated pets list',
+    schema: {
+      example: {
+        data: [
+          {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            name: 'Buddy',
+            species: 'DOG',
+            breed: 'Golden Retriever',
+            age: 3,
+            gender: 'MALE',
+            size: 'LARGE',
+            description: 'Friendly and energetic dog',
+            imageUrl: 'https://example.com/buddy.jpg',
+            status: 'AVAILABLE',
+            currentOwnerId: '550e8400-e29b-41d4-a716-446655440001',
+            createdAt: '2026-02-25T10:00:00Z',
+            updatedAt: '2026-02-25T10:00:00Z',
+          },
+          {
+            id: '550e8400-e29b-41d4-a716-446655440002',
+            name: 'Max',
+            species: 'DOG',
+            breed: 'Labrador',
+            age: 2,
+            gender: 'MALE',
+            size: 'LARGE',
+            description: 'Playful and loyal',
+            imageUrl: 'https://example.com/max.jpg',
+            status: 'AVAILABLE',
+            currentOwnerId: '550e8400-e29b-41d4-a716-446655440001',
+            createdAt: '2026-02-24T10:00:00Z',
+            updatedAt: '2026-02-24T10:00:00Z',
+          },
+        ],
+        meta: {
+          page: 1,
+          limit: 20,
+          total: 150,
+          totalPages: 8,
+          hasNextPage: true,
+          hasPreviousPage: false,
+        },
+      },
+    },
+  })
+  async findAll(@Query() searchDto: SearchPetsDto) {
+    return this.petsService.findAll(searchDto);
   }
 
   /**

@@ -8,6 +8,12 @@ import { StatusTransitionValidator } from './validators/status-transition.valida
 import { UserRole, PetStatus } from '../common/enums';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
+import { SearchPetsDto } from './dto/search-pets.dto';
+import {
+  PaginatedResponseDto,
+  PaginationMetaDto,
+} from '../common/dto/paginated-response.dto';
+import { Prisma } from '@prisma/client';
 
 /**
  * Pet Service
@@ -242,14 +248,55 @@ export class PetsService {
   }
 
   /**
-   * Find all pets
-   * @returns List of available pets
+   * Find all pets with pagination and filtering
+   * @param searchDto - Search and pagination parameters
+   * @returns Paginated response with pets and metadata
    */
-  async findAll() {
-    return this.prisma.pet.findMany({
-      where: { status: 'AVAILABLE' },
-      include: { currentOwner: true },
-    });
+  async findAll(searchDto: SearchPetsDto = {}) {
+    const {
+      page = 1,
+      limit = 20,
+      species,
+      gender,
+      size,
+      status,
+      search,
+    } = searchDto;
+
+    // Build filter conditions
+    const where: Prisma.PetWhereInput = {
+      status: status || PetStatus.AVAILABLE, // Default to AVAILABLE for public
+      ...(species && { species }),
+      ...(gender && { gender }),
+      ...(size && { size }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { breed: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    // Execute queries in parallel for better performance
+    const [data, total] = await Promise.all([
+      this.prisma.pet.findMany({
+        where,
+        skip,
+        take: limit,
+        include: { currentOwner: true },
+        orderBy: { createdAt: 'desc' }, // Most recent first
+      }),
+      this.prisma.pet.count({ where }),
+    ]);
+
+    // Build metadata
+    const meta = new PaginationMetaDto(page, limit, total);
+
+    // Return paginated response
+    return new PaginatedResponseDto(data, meta);
   }
 
   /**
