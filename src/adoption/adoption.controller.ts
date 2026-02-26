@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   BadRequestException,
   UploadedFiles,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -21,10 +22,12 @@ import { CreateAdoptionDto } from './dto/create-adoption.dto';
 import { Request } from 'express';
 import { DocumentsService } from '../documents/documents.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { EventsService } from '../events/events.service';
+import { EventEntityType, EventType } from '@prisma/client';
 
 interface AuthRequest extends Request {
   user: {
-    sub: string;
+    userId: string;
   };
 }
 
@@ -33,6 +36,7 @@ export class AdoptionController {
   constructor(
     private readonly adoptionService: AdoptionService,
     private readonly documentsService: DocumentsService,
+    private readonly eventsService: EventsService,
   ) {}
 
   @Post('requests')
@@ -42,7 +46,7 @@ export class AdoptionController {
     @Req() req: AuthRequest,
     @Body() dto: CreateAdoptionDto,
   ) {
-    return this.adoptionService.requestAdoption(req.user.sub, dto);
+    return this.adoptionService.requestAdoption(req.user.userId, dto);
   }
 
   @Patch(':id/approve')

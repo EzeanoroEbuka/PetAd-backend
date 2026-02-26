@@ -1,11 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdoptionController } from './adoption.controller';
+import { AdoptionService } from './adoption.service';
+import { DocumentsService } from '../documents/documents.service';
 import { EventsService } from '../events/events.service';
 import { EventEntityType, EventType } from '@prisma/client';
 import { Request } from 'express';
 
 describe('AdoptionController', () => {
   let controller: AdoptionController;
+
+  const mockAdoptionService = {
+    requestAdoption: jest.fn(),
+  };
+
+  const mockDocumentsService = {
+    uploadDocuments: jest.fn(),
+  };
 
   const mockEventsService = {
     logEvent: jest.fn(),
@@ -17,6 +27,14 @@ describe('AdoptionController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdoptionController],
       providers: [
+        {
+          provide: AdoptionService,
+          useValue: mockAdoptionService,
+        },
+        {
+          provide: DocumentsService,
+          useValue: mockDocumentsService,
+        },
         {
           provide: EventsService,
           useValue: mockEventsService,
