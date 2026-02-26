@@ -6,10 +6,15 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { LoggingService } from '../../logging/logging.service';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost): void {
+  constructor(
+    private readonly loggingService: LoggingService,
+  ) {}
+
+  async catch(exception: unknown, host: ArgumentsHost): Promise<void> {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -18,14 +23,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let message: string | object = 'Internal server error';
 
     if (exception instanceof HttpException) {
-      const httpException = exception as HttpException;
-      status = httpException.getStatus();
-      message = httpException.getResponse();
-    } 
-    else if (exception instanceof Error) {
-      const error = exception as Error;
-      message = error.message;
+      status = exception.getStatus();
+      message = exception.getResponse();
+    } else if (exception instanceof Error) {
+      message = exception.message;
     }
+
+    await this.loggingService.log({
+      level: 'ERROR',
+      action: 'HTTP_EXCEPTION',
+      message:
+        typeof message === 'string'
+          ? message
+          : JSON.stringify(message),
+      userId: (request as any).user?.sub,
+      metadata: {
+        statusCode: status,
+        path: request.url,
+        method: request.method,
+      },
+    });
 
     response.status(status).json({
       success: false,
@@ -36,3 +53,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
   }
 }
+
+
+
+
+
+
+
+
+
+
+

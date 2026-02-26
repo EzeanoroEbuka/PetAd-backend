@@ -84,6 +84,11 @@ enum EventType {
   TRUST_SCORE_UPDATED
 }
 
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -226,6 +231,18 @@ model Escrow {
   @@map("escrows")
 }
 
+
+model AppLog {
+  id        String   @id @default(uuid())
+  level     LogLevel
+  action    String
+  message   String
+  userId    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+
 model EventLog {
   id          String           @id @default(uuid())
   entityType  EventEntityType  @map("entity_type")
@@ -248,3 +265,4 @@ model EventLog {
   @@index([createdAt])
   @@map("event_logs")
 }
+
