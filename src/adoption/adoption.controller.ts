@@ -8,6 +8,9 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  BadRequestException,
+  UploadedFiles,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -16,16 +19,20 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { AdoptionService } from './adoption.service';
 import { CreateAdoptionDto } from './dto/create-adoption.dto';
-import { UpdateAdoptionStatusDto } from './dto/update-adoption-status.dto';
+import { DocumentsService } from '../documents/documents.service';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 interface AuthRequest extends Request {
-  user: { userId: string; email: string; role: string };
+  user: { userId: string; email: string; role: string; sub?: string };
 }
 
 @Controller('adoption')
 @UseGuards(JwtAuthGuard)
 export class AdoptionController {
-  constructor(private readonly adoptionService: AdoptionService) {}
+  constructor(
+    private readonly adoptionService: AdoptionService,
+    private readonly documentsService: DocumentsService,
+  ) {}
 
   /**
    * POST /adoption/requests
@@ -35,7 +42,10 @@ export class AdoptionController {
   @Post('requests')
   @HttpCode(HttpStatus.CREATED)
   requestAdoption(@Req() req: AuthRequest, @Body() dto: CreateAdoptionDto) {
-    return this.adoptionService.requestAdoption(req.user.userId, dto);
+    return this.adoptionService.requestAdoption(
+      (req.user.userId || req.user.sub) as string,
+      dto,
+    );
   }
 
   /**
@@ -64,5 +74,41 @@ export class AdoptionController {
     return this.adoptionService.updateAdoptionStatus(id, req.user.userId, {
       status: 'COMPLETED',
     });
+  }
+
+  @Post(':id/documents')
+  @UseInterceptors(
+    FilesInterceptor('files', 5, {
+      limits: {
+        fileSize: parseInt(process.env.MAX_FILE_SIZE ?? '10485760'),
+      },
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+
+        if (!allowedTypes.includes(file.mimetype)) {
+          cb(
+            new BadRequestException('Only PDF and DOCX files are allowed'),
+            false,
+          );
+        } else {
+          cb(null, true);
+        }
+      },
+    }),
+  )
+  async uploadDocuments(
+    @Param('id') adoptionId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: AuthRequest,
+  ) {
+    return this.documentsService.uploadDocuments(
+      adoptionId,
+      (req.user.userId || req.user.sub) as string,
+      req.user.role as Role,
+      files,
+    );
   }
 }

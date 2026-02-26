@@ -4,7 +4,7 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { PetStatus, UserRole } from '../../src/common/enums';
+import { PetStatus, UserRole, PetSpecies } from '../../src/common/enums';
 
 describe('Pet Status Lifecycle (E2E)', () => {
   let app: INestApplication;
@@ -541,5 +541,90 @@ describe('Pet Status Lifecycle (E2E)', () => {
       expect(response.body.allowedTransitions).toContain(PetStatus.PENDING);
       expect(response.body.allowedTransitions).toContain(PetStatus.IN_CUSTODY);
     });
+  });
+
+  it('should return pet as NOT available when active adoption exists', async () => {
+    const owner = await prismaService.user.create({
+      data: {
+        email: `owner_${Date.now()}@test.com`,
+        password: 'hashed',
+        firstName: 'Owner',
+        lastName: 'Two',
+      },
+    });
+
+    const adopter = await prismaService.user.create({
+      data: {
+        email: `owner_${Date.now()}@test.com`,
+        password: 'hashed',
+        firstName: 'Adopter',
+        lastName: 'Test',
+      },
+    });
+
+    const pet = await prismaService.pet.create({
+      data: {
+        name: 'Max',
+        species: PetSpecies.DOG,
+        currentOwnerId: owner.id,
+      },
+    });
+
+    await prismaService.adoption.create({
+      data: {
+        petId: pet.id,
+        adopterId: adopter.id,
+        ownerId: owner.id,
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .get(`/pets/${pet.id}`)
+      .expect(200);
+
+    expect(res.body.isAvailable).toBe(false);
+  });
+
+  it('should return pet as NOT available when active custody exists', async () => {
+    const owner = await prismaService.user.create({
+      data: {
+        email: `owner_${Date.now()}@test.com`,
+        password: 'hashed',
+        firstName: 'Owner',
+        lastName: 'Three',
+      },
+    });
+
+    const holder = await prismaService.user.create({
+      data: {
+        email: `owner_${Date.now()}@test.com`,
+        password: 'hashed',
+        firstName: 'Holder',
+        lastName: 'Test',
+      },
+    });
+
+    const pet = await prismaService.pet.create({
+      data: {
+        name: 'Charlie',
+        species: PetSpecies.DOG,
+        currentOwnerId: owner.id,
+      },
+    });
+
+    await prismaService.custody.create({
+      data: {
+        petId: pet.id,
+        holderId: holder.id,
+        type: 'TEMPORARY',
+        startDate: new Date(),
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .get(`/pets/${pet.id}`)
+      .expect(200);
+
+    expect(res.body.isAvailable).toBe(false);
   });
 });
