@@ -1,10 +1,10 @@
 import {
   Controller,
+  Post,
   Patch,
   Param,
-  UseGuards,
-  Post,
   Body,
+  UseGuards,
   Req,
   HttpCode,
   HttpStatus,
@@ -13,25 +13,24 @@ import {
   UploadedFiles,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { AdoptionService } from './adoption.service';
 import { CreateAdoptionDto } from './dto/create-adoption.dto';
-import type { Request } from 'express';
 import { DocumentsService } from '../documents/documents.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { EventsService } from '../events/events.service';
 import { EventEntityType, EventType } from '@prisma/client';
 
 interface AuthRequest extends Request {
-  user: {
-    userId: string;
-  };
+  user: { userId: string; email: string; role: string; sub?: string };
 }
 
 @Controller('adoption')
+@UseGuards(JwtAuthGuard)
 export class AdoptionController {
   constructor(
     private readonly adoptionService: AdoptionService,
@@ -39,45 +38,46 @@ export class AdoptionController {
     private readonly eventsService: EventsService,
   ) {}
 
+  /**
+   * POST /adoption/requests
+   * Any authenticated user can request to adopt a pet.
+   * Fires ADOPTION_REQUESTED event on success.
+   */
   @Post('requests')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
-  async requestAdoption(
-    @Req() req: AuthRequest,
-    @Body() dto: CreateAdoptionDto,
-  ) {
-    return this.adoptionService.requestAdoption(req.user.userId, dto);
+  requestAdoption(@Req() req: AuthRequest, @Body() dto: CreateAdoptionDto) {
+    return this.adoptionService.requestAdoption(
+      (req.user.userId || req.user.sub) as string,
+      dto,
+    );
   }
 
+  /**
+   * PATCH /adoption/:id/approve
+   * Admin-only. Approves a pending adoption request.
+   * Fires ADOPTION_APPROVED event on success.
+   */
   @Patch(':id/approve')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  async approveAdoption(
-    @Param('id') id: string,
-    @Req() req: Request,
-  ): Promise<{ message: string }> {
-    const actorId =
-      (req as Request & { user?: { userId?: string } }).user?.userId;
+  approveAdoption(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.adoptionService.updateAdoptionStatus(id, req.user.userId, {
+      status: 'APPROVED',
+    });
+  }
 
-    try {
-      await this.eventsService.logEvent({
-        entityType: EventEntityType.ADOPTION,
-        entityId: id,
-        eventType: EventType.ADOPTION_APPROVED,
-        actorId,
-        payload: {
-          adoptionId: id,
-          status: 'APPROVED',
-          source: 'AdoptionController',
-        },
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to record adoption approval event',
-      );
-    }
-
-    return { message: `Adoption ${id} approved` };
+  /**
+   * PATCH /adoption/:id/complete
+   * Admin-only. Marks an adoption as completed.
+   * Fires ADOPTION_COMPLETED event on success.
+   */
+  @Patch(':id/complete')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  completeAdoption(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.adoptionService.updateAdoptionStatus(id, req.user.userId, {
+      status: 'COMPLETED',
+    });
   }
 
   @Post(':id/documents')
@@ -106,12 +106,12 @@ export class AdoptionController {
   async uploadDocuments(
     @Param('id') adoptionId: string,
     @UploadedFiles() files: Express.Multer.File[],
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
     return this.documentsService.uploadDocuments(
       adoptionId,
-      req.user.userId,
-      req.user.role,
+      (req.user.userId || req.user.sub) as string,
+      req.user.role as Role,
       files,
     );
   }
