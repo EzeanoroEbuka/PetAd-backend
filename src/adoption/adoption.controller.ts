@@ -19,7 +19,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { AdoptionService } from './adoption.service';
 import { CreateAdoptionDto } from './dto/create-adoption.dto';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { DocumentsService } from '../documents/documents.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { EventsService } from '../events/events.service';
